@@ -1,0 +1,38 @@
+/* Start of Login Css */
+.login-tab-container {
+	background-color: #e5ecf3;
+	padding: 0.4rem 0.1rem;
+	border-radius: var(--custom-border-radius1);
+	width: 100%;
+	display: flex;
+	align-items: center;
+}
+
+.btn.login-tab-btn {
+	width: 100%;
+	background-color: transparent !important;
+	color: #899fb3 !important;
+	border-radius: var(--custom-border-radius2) !important;
+}
+
+.btn.login-tab-btn.active,
+.btn.login-tab-btn:hover {
+	background-color: #FFFFFF !important;
+	color: var(--primary-text-color) !important;
+	box-shadow: var(--custom-box-shadow);
+	-webkit-box-shadow: var(--custom-box-shadow);
+	-moz-box-shadow: var(--custom-box-shadow);
+}
+
+.login-form-container {
+	background-color: var(--secondary-bg-color);
+	border-radius: var(--custom-border-radius1);
+	box-shadow: var(--custom-box-shadow);
+	-webkit-box-shadow: var(--custom-box-shadow);
+	-moz-box-shadow: var(--custom-box-shadow);
+	padding: 1rem;
+}
+
+
+
+/* End of Login Css */
