@@ -5,16 +5,18 @@ const User = require('../models/User');
 // Get and perform functions via POST
 router.post('/', async (req, res) => {
     try {
-        // const newUser = await User.registerUsers();
-        // res.status(201).json(newUser);
         let response = {};
 
-        switch (req.body.command) {
+        let command = req.body.command;
+
+        let params = req.body.params;
+
+        switch (command) {
             case "registerUsers":
-                response = await User.registerUsers(req.body.params);
+                response = await User.registerUsers(params);
                 break;
             case "memberLogin":
-                response = await User.memberLogin(req.body.params);
+                response = await User.memberLogin(params);
                 break;
         }
 

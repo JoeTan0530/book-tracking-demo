@@ -1,3 +1,5 @@
+const mongoose = require('mongoose');
+
 const generateReturnObj = (type, returnCode, dataReturn = "", statusMsg = "") => {
 	let tempObj = {
 		status: "",
@@ -25,7 +27,16 @@ const generateReturnObj = (type, returnCode, dataReturn = "", statusMsg = "") =>
 	return tempObj;
 }
 
+const verifyAndFindByID = (checkingID, customErrorMsg = "Invalid ID format") => {
+	if (!mongoose.Types.ObjectId.isValid(checkingID)) {
+        return generateReturnObj("Error", 1, "", customErrorMsg);
+    } else {
+    	return checkingID;
+    }
+}
+
 // Export all functions
 module.exports = {
-    generateReturnObj
+    generateReturnObj,
+    verifyAndFindByID
 };

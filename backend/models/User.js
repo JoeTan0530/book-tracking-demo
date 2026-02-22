@@ -1,4 +1,6 @@
 const mongoose = require('mongoose');
+const bcrypt = require('bcrypt');
+
 const { 
     generateReturnObj 
 } = require('./utilities/general');
@@ -27,18 +29,29 @@ const userSchema = new mongoose.Schema({
 userSchema.statics.registerUsers = async function(params) {
 	const paramData = params;
 
+	// Validate input params
 	const checkEmailRes = await this.checkUserExistByEmail(paramData);
 
 	if (checkEmailRes && checkEmailRes.length > 0) {
 		return "Email already taken.";
 	} 
 
-	this.name = paramData['name'];
-	this.email = paramData['email'];
-	this.password = paramData['password'];
-	this.status = 'active';
+	// Generate salt
+	const saltRounds = Number(process.env.PASSWORD_SALT);
+    const salt = await bcrypt.genSalt(saltRounds);
+    // Hash the password with the salt
+    encryptedPassword = await bcrypt.hash(paramData['password'], salt);
 
-	this.save();
+	// Began setup data for DB entry
+	const newUser = new this({
+		name: paramData['name'],
+		email: paramData['email'],
+		password: encryptedPassword,
+		status: "active"
+	});
+
+	// Save the document instance to DB
+	await newUser.save();
 
 	return generateReturnObj("Success", 0, "", "Successfully registered account, please use registered credentials to login.");
 }
@@ -65,12 +78,25 @@ userSchema.statics.memberLogin = async function(params) {
 	if (userRes && userRes.length > 0) {
 		const userData = userRes[0];
 
-		if (userData['password'] && userData['password'] == paramData['password']) {
-			return generateReturnObj("Success", 0, "", "Successfully logged in.");
+		const isPasswordValid = await userData.comparePassword(paramData['password']);
+  
+		if (isPasswordValid && !isPasswordValid['status']) {
+		    return generateReturnObj("Success", 0, "", "Successfully logged in.");
+		} else {
+			return isPasswordValid;
 		}
 	}
 
 	return generateReturnObj("Error", 1, "", "Invalid login credentials.");
 }
+
+// Method to compare password
+userSchema.methods.comparePassword = async function(inputPassword) {
+	 try {
+	    return await bcrypt.compare(inputPassword, this.password);
+	} catch (error) {
+	    throw generateReturnObj("Error", 1, "", "Password verification failed.");
+	}
+};
 
 module.exports = mongoose.model('Users', userSchema);
