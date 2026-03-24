@@ -1,7 +1,8 @@
 const mongoose = require('mongoose');
 const { 
     generateReturnObj,
-    verifyAndFindByID
+    verifyAndFindByID,
+    mapCountObj
 } = require('./utilities/general');
 
 const bookSchema = new mongoose.Schema({
@@ -18,8 +19,12 @@ const bookSchema = new mongoose.Schema({
     },
     status: {
         type: String,
-        enum: ['want_to_read', 'reading', 'read'],
-        default: 'want_to_read'
+        enum: ['to_read', 'reading', 'completed'],
+        default: 'to_read'
+    },
+    rating: {
+        type: Number,
+        required: true
     },
     client_id: {
         type: String,
@@ -30,33 +35,154 @@ const bookSchema = new mongoose.Schema({
 });
 
 bookSchema.statics.getBookList = async function(params) {
-    const paramData = params;
+    const { 
+        userID, 
+        page = 1, 
+        limit = 10, 
+        status 
+    } = params;
 
-    const bookListRes = this.find({client_id: paramData['userID']}, "title description author status");
+    const skip = (page - 1) * limit;
+
+    let matchCondition = { client_id: userID };
+
+    if (status && status != "") {
+        matchCondition.status = status;
+    }
+
+    const bookListRes = await this.aggregate([
+        { 
+            $match: matchCondition
+        },
+        {
+            $project: {
+                _id: 0, // This is to tell MongoDB to ignore returning the special "_id" column as it will add to it by it's default.
+                bookID: "$_id",
+                title: 1, 
+                status: 1,
+                rating: 1,
+                createdAt: {
+                    $dateToString: {
+                      format: "%Y-%m-%d %H:%M:%S", // 2024-03-17
+                      date: "$createdAt"
+                    }
+                }
+            }
+        },
+        { $sort: { createdAt: -1 } },
+        { $skip: skip },
+        { $limit: limit },
+    ]);
+
+    const booksCountRes = await this.getBooksCounts({userID: userID});
 
     if (bookListRes && bookListRes.length > 0) {
-        return generateReturnObj("Success", 0, bookListRes);
+        let listingObj = {
+            listing: bookListRes,
+        }
+
+        if (booksCountRes && booksCountRes['status'] == "ok" && booksCountRes['code'] == "0") {
+            listingObj['counts'] = booksCountRes['data'];
+        }
+
+        return generateReturnObj("Success", 0, listingObj);
     } else {
-        return generateReturnObj("Success", 0, "", "No results found.");
+        let errorData = (booksCountRes && booksCountRes['status'] == "ok" && booksCountRes['code'] == "0") ? {counts: booksCountRes['data']} : "";
+
+        return generateReturnObj("Success", 0, {counts: booksCountRes['data']}, "No results found.");
+    }
+}
+
+bookSchema.statics.getBooksCounts = async function(params) {
+    const { userID } = params;
+
+    const result = await this.aggregate([
+        { 
+            $match: { client_id: userID } 
+        },
+        {
+            $facet: {
+                total: [
+                    { $count: "count" }
+                ],
+                reading: [
+                    { 
+                        $match: { status: "reading" } 
+                    }, 
+                    { 
+                        $count: "count" 
+                    }
+                ],
+                completed: [
+                    { 
+                        $match: { status: "completed" } 
+                    }, 
+                    { 
+                        $count: "count" 
+                    }
+                ],
+                to_read: [
+                    { 
+                        $match: { status: "to_read" } 
+                    }, 
+                    { 
+                        $count: "count" 
+                    }
+                ]
+            }
+        }
+    ]);
+
+    if (result) {
+        let countObj = mapCountObj(result);
+
+        return generateReturnObj("Success", 0, countObj);
+    } else {
+        return generateReturnObj("Error", 1, "", "Unable to get data count.");
     }
 }
 
 bookSchema.statics.getBookItem = async function(params) {
-    const paramData = params;
+    const { bookID, userID } = params;
 
-    if (paramData) {
-        if (paramData['bookID']) {
+    if (params) {
+        if (bookID) {
             // Checked id format to be valid before doing anything else.
-            const verifiedFormatID = verifyAndFindByID(paramData['bookID'], "Invalid book ID format.");
+            const verifiedFormatID = verifyAndFindByID(bookID, "Invalid book ID format.");
 
             if (verifiedFormatID['status'] && verifiedFormatID['status'] == "Error") {
                 return verifiedFormatID;
             }
 
-            const bookItem = this.findById(verifiedFormatID);
+            const bookItem = await this.aggregate([
+                {
+                    $match: { 
+                        _id: new mongoose.Types.ObjectId(verifiedFormatID),
+                    } 
+                },
+                {
+                    $project: {
+                        _id: 0,
+                        bookID: "$_id",
+                        title: 1,
+                        author: 1,
+                        status: 1,
+                        rating: 1,
+                        description: 1,
+                        client_id: 1
+                    }
+                }
+            ]);
 
             if (bookItem) {
-                return generateReturnObj("Success", 0, bookItem, "");
+                let verifyParam = {bookItem: bookItem, userID: userID};
+                const verifyOwnerRes = await this.verifyBookOwner(verifyParam);
+
+                if (verifyOwnerRes) {
+                    return generateReturnObj("Success", 0, bookItem[0], "");
+                }
+
+                return generateReturnObj("Error", 1, "", "Invalid user, unable to retrived book data");
             } else {
                 return generateReturnObj("Error", 1, "", "Unable to retrieve book item.");
             }
@@ -69,13 +195,32 @@ bookSchema.statics.getBookItem = async function(params) {
     }
 }
 
+bookSchema.statics.verifyBookOwner = async function (params) {
+    const { bookItem, userID, isID = 0 } = params;
+
+    let verificationItem = Array.isArray(bookItem) ? bookItem[0] : bookItem;
+
+    if (isID === 1) {
+        const getBookItemRes = await this.findById(bookItem);
+
+        verificationItem = getBookItemRes ? getBookItemRes : {};
+    }
+
+    if (verificationItem['client_id'] === userID) {
+        return true;
+    }
+
+    return false;
+}
+
 bookSchema.statics.addBookItem = async function(params) {
     const paramData = params;
 
     const requiredFieldArr = {
-        title: "Please enter title",
-        author: "Please enter author",
-        clientID: "Invalid client ID"
+        title: "Please enter title.",
+        author: "Please enter author.",
+        rating: "Please give a rating for this book.",
+        userID: "Invalid user ID."
     };
 
     if (paramData) {
@@ -84,7 +229,7 @@ bookSchema.statics.addBookItem = async function(params) {
             let tempData = paramData[fieldKey];
 
             if (!tempData || tempData == "") {
-                return generateReturnObj("Error", 1, "", requiredFieldArr[fieldKey]);
+                return generateReturnObj("Error", fieldKey === "userID" ? 2 : 1, "", requiredFieldArr[fieldKey]);
             }
         }
 
@@ -94,7 +239,8 @@ bookSchema.statics.addBookItem = async function(params) {
             author: paramData['author'],
             description: paramData['description'],
             status: paramData['status'],
-            client_id: paramData['clientID']
+            rating: paramData['rating'],
+            client_id: paramData['userID']
         });
 
         // Save the document instance to DB
@@ -158,6 +304,7 @@ bookSchema.statics.editBookItem = async function(params) {
                 book.author = paramData['author'];
                 book.description = paramData['description'];
                 book.status = paramData['status'];
+                book.rating = paramData['rating'];
 
                 // Update the new values into the document
                 await book.save();
@@ -178,17 +325,17 @@ bookSchema.statics.editBookItem = async function(params) {
 bookSchema.statics.getStatusList = function(internalUse = false) {
     const statusList = [
         {
-            label: "Want to read",
-            value: "want_to_read"
+            label: "To read",
+            value: "to_read"
         },
         {
             label: "Reading",
             value: "reading"
         },
         {
-            label: "Read",
-            value: "read"
-        }
+            label: "Completed",
+            value: "completed"
+        },
     ];
 
     if (internalUse) {
@@ -199,25 +346,31 @@ bookSchema.statics.getStatusList = function(internalUse = false) {
 }
 
 bookSchema.statics.removeBookItem = async function(params) {
-    const paramData = params;
+    const { bookID, userID } = params;
 
-    if (paramData) {
-        if (paramData['bookID']) {
+    if (params) {
+        if (bookID) {
             // Checked id format to be valid before doing anything else.
-            const verifiedFormatID = verifyAndFindByID(paramData['bookID'], "Invalid book ID format.");
+            const verifiedFormatID = verifyAndFindByID(bookID, "Invalid book ID format.");
 
             if (verifiedFormatID['status'] && verifiedFormatID['status'] == "Error") {
                 return verifiedFormatID;
             }
 
-            const deletedItem = await this.findByIdAndDelete(verifiedFormatID);
+            let verifyOwnerParam = {bookItem: bookID, userID: userID, isID: 1}
 
-            if (deletedItem) {
-                return generateReturnObj("Success", 0, "", "Successfully deleted a book item.");
-            } else {
-                return generateReturnObj("Error", 1, "", "Deletion failed, unable to delete book item.");
+            const verifyOwnerRes = await this.verifyBookOwner(verifyOwnerParam);
+            if (verifyOwnerRes) {
+                const deletedItem = await this.findByIdAndDelete(verifiedFormatID);
+
+                if (deletedItem) {
+                    return generateReturnObj("Success", 0, "", "Successfully deleted a book item.");
+                } else {
+                    return generateReturnObj("Error", 1, "", "Deletion failed, unable to delete book item.");
+                }
             }
-            
+
+            return generateReturnObj("Error", 1, "", "Invalid user, unable to perform delete.");;
         }
     } else {
         return generateReturnObj("Error", 1, "", "Invalid params.");

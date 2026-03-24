@@ -10,14 +10,14 @@ const generateReturnObj = (type, returnCode, dataReturn = "", statusMsg = "") =>
 
 	if (type == "Success") {
 		tempObj = {
-			status: "Ok",
+			status: "ok",
 			code: returnCode,
 			data: dataReturn,
 			statusMsg: statusMsg
 		}
 	} else if (type == "Error") {
 		tempObj = {
-			status: "Error",
+			status: "error",
 			code:  returnCode ? returnCode : 1,
 			data: dataReturn,
 			statusMsg: statusMsg
@@ -35,8 +35,22 @@ const verifyAndFindByID = (checkingID, customErrorMsg = "Invalid ID format") => 
     }
 }
 
+const mapCountObj = (countArray = {}, countKey = "count") => {
+	let tempCountObj = {};
+
+	if (countArray) {
+		const countObj = Array.isArray(countArray) ? countArray[0] : countArray;
+		for (let countObjKey in countObj) {
+	        tempCountObj[countObjKey] = countObj[countObjKey].length > 0 ? (countObj[countObjKey][0][countKey] ? countObj[countObjKey][0][countKey] : countObj[countObjKey][0]['count']) : 0;
+	    }
+	}
+
+    return tempCountObj;
+}
+
 // Export all functions
 module.exports = {
     generateReturnObj,
-    verifyAndFindByID
+    verifyAndFindByID,
+    mapCountObj
 };

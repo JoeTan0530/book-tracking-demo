@@ -30,11 +30,27 @@ userSchema.statics.registerUsers = async function(params) {
 	const paramData = params;
 
 	// Validate input params
+	if (!paramData['name'] || paramData['name'] == "") {
+		return generateReturnObj("Error", 1, "", "Please enter your name.");
+	}
+
+	if (!paramData['email'] || paramData['email'] == "") {
+		return generateReturnObj("Error", 1, "", "Please enter your email.");
+	}
+
+	if (!paramData['password'] || paramData['password'] == "") {
+		return generateReturnObj("Error", 1, "", "Password field cannot be empty.");
+	}
+
 	const checkEmailRes = await this.checkUserExistByEmail(paramData);
 
 	if (checkEmailRes && checkEmailRes.length > 0) {
-		return "Email already taken.";
+		return generateReturnObj("Error", 2, "", "Email already taken.");
 	} 
+
+	if (paramData['password'] != paramData['retypePassword']) {
+		return generateReturnObj("Error", 2, "", "Password and confirm password must be the same");
+	}
 
 	// Generate salt
 	const saltRounds = Number(process.env.PASSWORD_SALT);
@@ -73,7 +89,7 @@ userSchema.statics.memberLogin = async function(params) {
 		return generateReturnObj("Error", 1, "", "Please input password.");
 	}
 
-	const userRes = await this.find({email: paramData['username']}, "email password");
+	const userRes = await this.find({email: paramData['username']}, "_id name email password");
 
 	if (userRes && userRes.length > 0) {
 		const userData = userRes[0];
@@ -81,21 +97,38 @@ userSchema.statics.memberLogin = async function(params) {
 		const isPasswordValid = await userData.comparePassword(paramData['password']);
   
 		if (isPasswordValid && !isPasswordValid['status']) {
-		    return generateReturnObj("Success", 0, "", "Successfully logged in.");
-		} else {
-			return isPasswordValid;
-		}
+			const sessionID = await userData.generateSessionId();
+
+			const sessionData = {
+				isLoginData: 1,
+				sessionID: sessionID,
+				clientID: userData['_id'],
+				userInfo: {
+					name: userData['name'],
+					email: userData['email']	
+				}
+			};
+
+		    return generateReturnObj("Success", 0, sessionData, "Successfully logged in.");
+		} 
 	}
 
-	return generateReturnObj("Error", 1, "", "Invalid login credentials.");
+	return generateReturnObj("Error", 2, "", "Invalid login credentials.");
 }
+
+userSchema.methods.generateSessionId = () => {
+	const crypto = require('crypto');
+	const timestamp = Date.now().toString(36);
+	const random = crypto.randomBytes(16).toString('hex');
+	return `${timestamp}_${random}`;
+};
 
 // Method to compare password
 userSchema.methods.comparePassword = async function(inputPassword) {
 	 try {
 	    return await bcrypt.compare(inputPassword, this.password);
 	} catch (error) {
-	    throw generateReturnObj("Error", 1, "", "Password verification failed.");
+	    throw generateReturnObj("Error", 2, "", "Password verification failed.");
 	}
 };
 
