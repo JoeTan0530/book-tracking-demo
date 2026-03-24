@@ -7,20 +7,31 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 // Import specific icons
 import { faEyeSlash, faEye } from '@fortawesome/free-solid-svg-icons';
 
+// Import services
+import { showSystemPopup } from '../services/CustomSystemPopupService.js';
+
 export const apiCaller = async (method, param, fCallback, setErrMsg, setIsLoading=null) => {
 
 	if (method == "POST") {
-		let params = new FormData();
+		const customUrl = param['url'] ? param['url'] : process.env.REACT_APP_QUERY_URL;
 
-		params.append("params", JSON.stringify(param));
+		let params = param['urlParams'] ? param['urlParams'] : {};
+
+		if (!params['params']) {
+			params['params'] = {};
+		}
+
+		params['params']['userID'] = sessionStorage.getItem('userID') ? sessionStorage.getItem('userID') : "";
 
 		try {
-			let res = await axios.post(process.env.REACT_APP_BACKEND_URL, params, {
+			let res = await axios.post(customUrl, params, {
 				headers: {
-					"Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
-				},
+		      "Content-Type": "application/json",
+		    },
 			});
+
 			callApiSuccess(res, fCallback, setErrMsg, param);
+
 			if(setIsLoading) {
 				setIsLoading(false)
 			}
@@ -76,7 +87,22 @@ export const apiCaller = async (method, param, fCallback, setErrMsg, setIsLoadin
 function callApiSuccess(res, fCallback, setErrMsg, param) {
 	let result = res["data"];
 
-	if (result.status == "ok") {
+	if (result && result.status == "ok") {
+		if (result['data'] && result['data']['isLoginData'] && result['data']['isLoginData'] === 1) {
+			if (result['data']['sessionID']) {
+				sessionStorage.setItem('userSession', result['data']['sessionID']);
+			}
+
+			if (result['data']['clientID']) {
+				sessionStorage.setItem('userID', result['data']['clientID']);
+			}
+
+			if (result['data']['userInfo']) {
+				sessionStorage.setItem('fullName', result['data']['userInfo']['name']);
+				sessionStorage.setItem('email', result['data']['userInfo']['email']);
+			}
+		}
+
 		fCallback(result.data, result.statusMsg);
 	} else if (result.status == "error" && result.data && result.data.field && result.data.field != "") {
 		result.data.field.forEach((element) => {
@@ -88,23 +114,17 @@ function callApiSuccess(res, fCallback, setErrMsg, param) {
 	} else if (result.status == "error") {
 		errorHandling(result.code, result.statusMsg);
 	} else {
-		console.log("somethign went wrong");
+		console.log("Something went wrong");
 	}
 }
 
 function errorHandling(code, msg) {
 	switch (code) {
 		case 1:
+			showSystemPopup(msg, 'warning');
 			break;
 		case 2:
-			break;
-		case 3:
-			break;
-		case 4:
-			break;
-		case 5:
-			break;
-		case 6:
+			showSystemPopup(msg, 'error');
 			break;
 		default:
 			console.log('Default Error');

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useRef } from "react";
 import { Container, Row, Col, Button, Form } from "react-bootstrap";
 
 // Import the FontAwesomeIcon component
@@ -11,15 +11,15 @@ import { handlePasswordReveal, PasswordToggle, apiCaller } from "../utils/genera
 import { useNavigate } from 'react-router-dom';
 import { showSystemPopup } from '../services/CustomSystemPopupService.js';
 
-const LoginPage: React.FC = () => {
-
-	const [loginInputData, setLoginInputData] = useState({});
+const RegistrationPage: React.FC = () => {
+	const [registrationInputData, setRegistrationInputData] = useState({});
 	const passwordInput = useRef(null);
+	const retypePasswordInput = useRef(null);
 
 	const updateFormInput = (events) => {
 		const {id, value} = events.target;
 
-		setLoginInputData((prevData) => ({
+		setRegistrationInputData((prevData) => ({
 			...prevData,
 			[id]: value
 		}));
@@ -33,31 +33,23 @@ const LoginPage: React.FC = () => {
 
 	const queryUrl = process.env.REACT_APP_QUERY_URL_USER;
 
-	const triggerLogin = () => {
+	const triggerRegistration = () => {
 		let params = {
 			url: queryUrl,
 			urlParams: {
-				command: "memberLogin",
-				params: loginInputData
+				command: "registerUsers",
+				params: registrationInputData
 			}
 		};
 
-		apiCaller("POST", params, loginCallback);
+		apiCaller("POST", params, registrationCallback);
 	}
 
-	const loginCallback = (data, message) => {
-		showSystemPopup("Successfully logged in, redirecting to dashboard.");
+	const registrationCallback = (data, message) => {
+		showSystemPopup(message, "info");
 		setTimeout(() => {
-			navigateToPage("/dashboard");
-		}, 1500);
-	}
-
-	const handleKeyDown = (event) => {
-		if (event.key === "Enter") {
-			triggerLogin();
-			const inputs = event.currentTarget.querySelectorAll("input");
-			inputs.forEach((input) => input.blur());
-		}
+			navigate('/');
+		}, 3000);
 	}
 
 	return (
@@ -81,29 +73,35 @@ const LoginPage: React.FC = () => {
 					</div>
 					<Row className="login-tab-container mx-0 mb-3">
 						<Col xs={6} className="px-1">
-							<Button className="login-tab-btn active" onClick={() => {navigateToPage("/");}}>
+							<Button className="login-tab-btn" onClick={() => {navigateToPage("/");}}>
 								Login
 							</Button>
 						</Col>
 						<Col xs={6} className="px-1">
-							<Button className="login-tab-btn" onClick={() => {navigateToPage("/registration");}}>
+							<Button className="login-tab-btn active" onClick={() => {navigateToPage("/registration");}}>
 								Register
 							</Button>
 						</Col>
 					</Row>
 					<div className="login-form-container">
 						<h2 className="mb-0 font-size-lg font-weight-thick primary-text-color">
-							Welcome back
+							Create an account
 						</h2>
 						<p className="font-size-sm font-weight-thin secondary-text-color">
-							Enter your credentials and start your reading journey.
+							Enter your details to get started
 						</p>
-						<Form id="loginForm" className="mb-4" onKeyDown={handleKeyDown}>
-							<Form.Group className="form-group" controlId="username">
+						<Form id="registrationForm" className="mb-4">
+							<Form.Group className="form-group" controlId="name">
+								<Form.Label>
+									Name
+								</Form.Label>
+								<Form.Control type="text" onChange={updateFormInput} placeholder="Your Name"/>
+							</Form.Group>
+							<Form.Group className="form-group" controlId="email">
 								<Form.Label>
 									Email
 								</Form.Label>
-								<Form.Control type="text" onChange={updateFormInput}/>
+								<Form.Control type="text" onChange={updateFormInput} placeholder="Your Email"/>
 							</Form.Group>
 							<Form.Group className="form-group" controlId="password">
 								<Form.Label>
@@ -112,9 +110,16 @@ const LoginPage: React.FC = () => {
 								<Form.Control ref={passwordInput} type="password" onChange={updateFormInput}/>
 								<PasswordToggle passwordRef={passwordInput} />
 							</Form.Group>
+							<Form.Group className="form-group" controlId="retypePassword">
+								<Form.Label>
+									Confirm Password
+								</Form.Label>
+								<Form.Control ref={retypePasswordInput} type="password" onChange={updateFormInput}/>
+								<PasswordToggle passwordRef={retypePasswordInput} />
+							</Form.Group>
 						</Form>
-						<Button variant="primary" className="w-100" onClick={triggerLogin}>
-							Login
+						<Button variant="primary" className="w-100" onClick={triggerRegistration}>
+							Register
 						</Button>
 					</div>
 				</Col>
@@ -123,4 +128,4 @@ const LoginPage: React.FC = () => {
 	);
 }
 
-export default LoginPage;
+export default RegistrationPage;
