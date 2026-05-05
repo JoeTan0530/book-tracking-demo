@@ -62,6 +62,7 @@ const Dashboard: React.FC = () => {
 	const [statusList, setStatusList] = useState({});
 	const [filter, setFilter] = useState("");
 	const [listingTabCount, setListingTabCount] = useState({});
+	const [pagination, setPagination] = useState({});
 
 	useEffect(() => {
 		getStatusDisplay();
@@ -73,7 +74,11 @@ const Dashboard: React.FC = () => {
 		}
 	}, [statusList]);
 
-	const navigateToPage = (pageName) => {
+	useEffect(() => {
+		getBookList();
+	}, [filter]);
+
+	const navigateToPage = (pageName = 1) => {
 		navigate(pageName);
 	};
 
@@ -101,13 +106,14 @@ const Dashboard: React.FC = () => {
 		}
 	}
 
-	const getBookList = (filter = "") => {
+	const getBookList = (pageNum = 1) => {
 		const params = {
 			url: queryUrl,
 			urlParams: {
 				command: "getBookList",
 				params: {
-					status: filter
+					status: filter,
+					page: pageNum
 				}
 			}
 		};
@@ -150,6 +156,8 @@ const Dashboard: React.FC = () => {
 		let tabCount = bookCount ? bookCount : {};
 
 		setListingTabCount(tabCount);
+
+		setPagination(data.pagination);
 	}
 
 	const deleteBook = (bookID) => {
@@ -177,8 +185,7 @@ const Dashboard: React.FC = () => {
 		});
 		
 		event.target.classList.add("active");
-
-		getBookList(tabName);
+		setFilter(tabName);
 	}
 
 	return (
@@ -216,7 +223,7 @@ const Dashboard: React.FC = () => {
 				</div>
 			</div>
 			<div className="mt-3">
-				<CustomTable listingData={listingData} thArray={thArray} listingCss={listingCss}/>
+				<CustomTable listingData={listingData} thArray={thArray} listingCss={listingCss} pagingData={pagination} pagingFunction={getBookList}/>
 			</div>
 		</>
 	)

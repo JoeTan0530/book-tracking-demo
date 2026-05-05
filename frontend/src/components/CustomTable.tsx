@@ -7,6 +7,9 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 // Import specific icons
 import { faBook } from '@fortawesome/free-solid-svg-icons';
 
+// Import components
+import CustomPagination from './CustomPagination.tsx';
+
 interface CustomTableProps {
 	listingID: string,
 	listingData: [],
@@ -16,7 +19,14 @@ interface CustomTableProps {
 
 const CustomTable: React.FC<CustomTableProps> = (props) => {
 
-	const { listingID, listingData, thArray, listingCss } = props;
+	const { 
+		listingID, 
+		listingData, 
+		thArray, 
+		listingCss, 
+		pagingData,
+		pagingFunction
+	} = props;
 
 	const tableID = listingID || `defaultListID${document.getElementsByClassName("listing-table-container").length}`;
 
@@ -104,6 +114,11 @@ const CustomTable: React.FC<CustomTableProps> = (props) => {
 						}
 					</Table>
 				</div>
+				{pagingData && (
+					<div className="mt-3">
+						<CustomPagination pagingID={listingID} pagingData={pagingData} pagingFunction={pagingFunction} />
+					</div>
+				)}
 			</>
 		)
 	} else {

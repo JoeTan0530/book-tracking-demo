@@ -6,7 +6,7 @@
 	--error-color: #c51017;
 	--warning-color: #ffe139;
 	--success-color: #4dff2c; 
-	--hyperlink-text-color: #755ff7;
+	--hyperlink-text-color: #000000;
 
 	/*webpage*/
 	--primary-bg-color: #F4F8FD;
@@ -873,6 +873,23 @@ table.listing-table > tbody > tr:last-child > td {
 	border-bottom: unset;
 }	
 /* End of table css */
+
+/* Start of custom pagination component css */
+.page-link {
+	background-color: transparent !important;
+	border: unset !important;
+	color: var(--primary-text-color) !important;
+}
+
+.page-link:hover,
+.page-item.active .page-link {
+	color: var(--hyperlink-text-color) !important;
+}
+
+.pagination-ellipsis.page-item .page-link:hover {
+	color: var(--primary-text-color) !important;
+}
+/* End of custom pagination component css */
 
 /* Start of custom rating component */
 .custom-rating-container {
