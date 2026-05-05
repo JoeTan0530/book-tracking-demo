@@ -75,10 +75,12 @@ bookSchema.statics.getBookList = async function(params) {
     ]);
 
     const booksCountRes = await this.getBooksCounts({userID: userID});
+    const booksPaginationRes = await this.getPagination({listingCondition: matchCondition, page: page, limit: limit});
 
     if (bookListRes && bookListRes.length > 0) {
         let listingObj = {
             listing: bookListRes,
+            pagination: booksPaginationRes
         }
 
         if (booksCountRes && booksCountRes['status'] == "ok" && booksCountRes['code'] == "0") {
@@ -91,6 +93,43 @@ bookSchema.statics.getBookList = async function(params) {
 
         return generateReturnObj("Success", 0, {counts: booksCountRes['data']}, "No results found.");
     }
+}
+
+bookSchema.statics.getPagination = async function(params) {
+    const { listingCondition, page, limit } = params;
+
+    const paginationRes = await this.aggregate([
+        {
+            $match: listingCondition
+        },
+        {
+            $facet: {
+                totalRecord: [
+                    { $count: "count" }
+                ],
+            }
+        }
+    ]);
+
+    let paginationObj = {
+        pageNumber: 1,
+        numRecord: limit,
+        totalRecord: 0,
+        totalPage: 0
+    }
+
+    if (paginationRes) {
+        const totalRecordData = paginationRes[0]['totalRecord'][0]['count'];
+
+        paginationObj = {
+            pageNumber: page,
+            numRecord: limit,
+            totalRecord: totalRecordData,
+            totalPage: Math.ceil(totalRecordData / limit)
+        };
+    }
+
+    return paginationObj;
 }
 
 bookSchema.statics.getBooksCounts = async function(params) {
